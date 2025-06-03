@@ -1,7 +1,7 @@
 {
   "name": "@vue/shared",
   "version": "1.0.0",
-  "main": "src/index.ts",
+  "main": "dist/index.ts",
   "module": "dist/shared.esm-bundler.js",
   "buildOptions": {
     "formats": [

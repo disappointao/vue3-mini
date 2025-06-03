@@ -4,7 +4,8 @@
 import minimist from "minimist";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
-import { createRequire } from "modulde";
+import { createRequire } from "module";
+import esbuild from "esbuild";
 
 // node中获取命令中的参数
 const args = minimist(process.argv.slice(2));
@@ -19,3 +20,20 @@ const format = args.f || "iife"; // 打包后的模块化规范
 
 // 入口文件解析
 const entry = resolve(__dirname, `../packages/${target}/src/index.ts`);
+const pkg = require(`../packages/${target}/package.json`);
+
+esbuild
+  .context({
+    entryPoints: [entry],
+    outfile: resolve(__dirname, `../packages/${target}/dist/${target}.js`),
+    bundle: true, // 依赖的模块会打包到一起
+    platform: "browser", // 打包后浏览器可以使用
+    sourcemap: true,
+    format, // cjs esm iife (iife需要定义名字)
+    globalName: pkg.buildOptions?.name,
+  })
+  .then((ctx) => {
+    console.log("start dev: 开始打包");
+
+    return ctx.watch(); // 监控入口文件 持续进行打包
+  });
