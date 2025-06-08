@@ -24,3 +24,6 @@ vue3简易版
 - 完善了依赖触发机制：当响应式数据发生变化时，能够高效、准确地触发相关 effect 的重新执行，支持自定义 scheduler。
 - 优化了 Proxy handler：在 `get` 时收集依赖，在 `set` 时对比新旧值并触发更新，保证响应式系统的高效和正确性。
 - 代码结构优化：进一步拆分和优化了 `effect.ts`、`reactiveEffect.ts`、`baseHandlers.ts` 等核心文件，提升了可维护性和扩展性。
+- 新增嵌套响应式支持：读取对象属性时自动递归转为响应式对象。
+- effect 函数支持返回 runner，可手动触发和获取 effect 实例，支持 options 配置。
+- 增加 effect 递归执行保护，防止死循环和重复触发。

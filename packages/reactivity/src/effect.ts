@@ -5,6 +5,12 @@ export function effect(fn, options?) {
   });
   // 初始化会执行一次
   _effect.run();
+  if (options) {
+    Object.assign(_effect, options); // 用户传递的覆盖掉内置的
+  }
+  const runner = _effect.run.bind(_effect);
+  runner.effect = _effect; // 可以在run方法上获取到effect的引用
+  return runner; // 将runner提供给外部手动执行
 }
 
 function preCleanEffect(effect) {
@@ -25,8 +31,9 @@ function postCleanEffect(effect) {
 export let activeEffect;
 class ReactiveEffect {
   _trackId = 0; // 用于记录当期那effect执行了几次
-  deps = [];
   _depsLength = 0;
+  _running = 0; // 代表当前是否正在执行（处理effect存在递归的情况）
+  deps = [];
   public active = true; // 用于控制effect的激活;
   // fn 用户编写的函数
   // fn 中依赖的数据发生变化之后，需要重新调用 run
@@ -46,9 +53,10 @@ class ReactiveEffect {
 
       // 每次收集依赖前，需要清理之前收集的依赖
       preCleanEffect(this);
-
+      this._running++;
       return this.fn(); //依赖收集
     } finally {
+      this._running--;
       activeEffect = lastEffect;
       postCleanEffect(this);
     }
@@ -90,7 +98,7 @@ export const trackEffect = (effect, dep) => {
 
 export function triggerEffects(dep) {
   for (const effect of dep.keys()) {
-    if (effect.scheduler) {
+    if (effect.scheduler && !effect._running) {
       effect.scheduler();
     }
   }
