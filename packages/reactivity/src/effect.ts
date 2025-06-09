@@ -30,7 +30,7 @@ function postCleanEffect(effect) {
 
 export let activeEffect;
 class ReactiveEffect {
-  _trackId = 0; // 用于记录当期那effect执行了几次
+  _trackId = 0; // 用于记录当前的effect执行了几次
   _depsLength = 0;
   _running = 0; // 代表当前是否正在执行（处理effect存在递归的情况）
   deps = [];
