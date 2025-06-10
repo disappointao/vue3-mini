@@ -2,7 +2,9 @@ import { toReactive } from "./reactive";
 import { activeEffect, trackEffect, triggerEffects } from "./effect";
 import { createDep } from "./reactiveEffect";
 
-export function ref(value) {}
+export function ref(value) {
+  return createRef(value);
+}
 
 function createRef(value) {
   return new RefImpl(value);
