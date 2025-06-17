@@ -1,0 +1,13 @@
+import { nodeOps } from "./nodeOps";
+import patchProp from "./patchProp";
+import { createRenderer } from "@vue/runtime-core";
+
+// 将节点操作和属性操作合并在一起
+const renderOptions = Object.assign({ patchProp }, nodeOps);
+
+// render 方法采用domApi 来进行渲染
+export const render = (vnode, container) => {
+  return createRenderer(renderOptions).render(vnode, container);
+};
+// runtime-dom -> runtime-core -> reactivity
+export * from "@vue/runtime-core";
