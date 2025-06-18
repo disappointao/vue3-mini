@@ -1,36 +1,83 @@
 # vue3-mini
 
-vue3简易版
+本项目为 Vue3 响应式系统的简易实现，涵盖了核心的响应式对象、依赖收集、计算属性、侦听 API 及相关工具函数。
+
+## 目录结构与功能模块
+
+### 1. 响应式对象（reactive）
+
+- **核心 API**：`reactive(target)`  
+  将普通对象转为响应式对象，内部通过 `Proxy` 拦截 `get`/`set` 操作，实现依赖收集与变更通知。
+- **实现要点**：
+  - 只代理对象类型，非对象直接返回。
+  - 利用 `WeakMap` 缓存已代理对象，防止重复代理。
+  - 通过 `ReactiveFlags.IS_REACTIVE` 标记响应式对象。
+  - 嵌套对象在访问时自动递归转为响应式。
+
+### 2. 代理处理器（baseHandlers）
+
+- **核心内容**：`mutableHandlers`
+  - `get` 拦截：依赖收集，递归响应式，返回属性值。
+  - `set` 拦截：对比新旧值，变更时触发依赖更新。
+- **依赖收集与触发**：分别调用 `track` 和 `trigger`，实现属性级别的依赖追踪和变更响应。
+
+### 3. 副作用与依赖收集（effect/reactiveEffect）
+
+- **核心 API**：`effect(fn, options?)`
+  - 注册副作用函数，自动追踪其依赖的响应式数据。
+  - 支持自定义调度器（scheduler）、手动停止（stop）、runner 返回。
+- **依赖收集机制**：
+  - 通过全局 `activeEffect` 追踪当前激活的副作用。
+  - `track`/`trigger` 维护依赖映射表（`targetMap`），实现属性到 effect 的映射。
+  - 支持依赖的自动清理与 diff，防止内存泄漏和重复收集。
+  - 递归执行保护，避免死循环。
+
+### 4. ref 与引用工具（ref）
+
+- **核心 API**：
+  - `ref(value)`：为基本类型或对象创建响应式引用。
+  - `toRef(object, key)`：将对象某个属性转为 ref。
+  - `toRefs(object)`：将对象所有属性转为 ref。
+  - `proxyRefs(objectWithRef)`：代理对象，自动解包/设置 ref。
+- **实现要点**：
+  - `RefImpl` 类封装响应式值，依赖收集与触发与 effect 机制兼容。
+  - 支持响应式对象属性的引用绑定，便于解构和模板绑定。
+
+### 5. 计算属性（computed）
+
+- **核心 API**：`computed(getter | { get, set })`
+  - 支持只读和可写计算属性。
+  - 内部通过 `ReactiveEffect` 实现惰性求值和缓存，依赖变更时自动标记为脏并重新计算。
+  - 依赖收集与 ref 机制兼容，可嵌套使用。
+- **实现要点**：
+  - `ComputeRefImpl` 类管理 getter、setter、依赖和脏值标记。
+  - 依赖变更时通过 `triggerRefValue` 通知外部 effect。
+
+### 6. 侦听 API（watch/watchEffect）
+
+- **核心 API**：
+  - `watch(source, callback, options)`：侦听响应式数据或 getter，数据变更时执行回调。
+  - `watchEffect(effect, options)`：自动侦听 effect 内部依赖，依赖变更时重新执行。
+- **特性支持**：
+  - 深度侦听（deep）、立即执行（immediate）、清理回调（onCleanup）、手动停止（返回 unWatch）。
+  - 支持侦听 ref、reactive、getter、函数等多种数据源。
+- **实现要点**：
+  - 通过 `ReactiveEffect` 追踪依赖，变更时自动调度回调。
+  - `traverse` 实现深度依赖收集。
+  - 回调参数支持新旧值、清理函数。
+
+### 7. 常量与工具（constants/shared）
+
+- **常量**：如 `ReactiveFlags`、`DirtyLevels`，用于标记响应式对象和脏值状态。
+- **工具函数**：如 `isObject`、`isFunction`，辅助类型判断和通用逻辑。
+
+## 设计亮点
+
+- **模块化设计**：各功能点独立封装，便于理解和扩展。
+- **依赖收集与清理**：支持精准依赖追踪和自动清理，防止内存泄漏。
+- **API 兼容性**：与 Vue3 响应式 API 高度一致，便于学习和迁移。
+- **类型支持**：TypeScript 编写，类型安全，便于二次开发。
 
 ---
 
-## Day 1 总结
-
-- 初始化了 monorepo 项目结构，分为 reactivity（响应式系统）和 shared（工具函数）两个基础包。
-- 配置了 pnpm 多包管理和 TypeScript 开发环境。
-- 编写了基于 esbuild 的开发打包脚本（scripts/dev.js），支持各模块的本地开发和打包。
-
-## Day 2 总结
-
-- 实现了 `reactive` 方法，支持将对象转为响应式对象，内部通过 Proxy 和缓存机制防止重复代理。
-- 实现了 `effect` 副作用收集的基础框架，能够在响应式数据变化时重新执行相关函数。
-- 编写了响应式对象的代理 handler（`mutableHandlers`），并初步实现了依赖收集的入口（`track`）。
-- 项目结构进一步完善，`reactivity` 包下新增了 `reactive.ts`、`effect.ts`、`baseHandlers.ts`、`reactiveEffect.ts` 等核心源码文件。
-
-## Day 3 总结
-
-- 实现了依赖收集的完整原理：完善了响应式系统中依赖的收集与管理机制。通过 `track` 和 `trackEffect`，确保每个响应式属性都能正确收集到依赖它的 effect，并通过 `_trackId` 机制防止重复收集。
-- 实现依赖的自动清理：每次 effect 执行前后，自动清理无效或多余的依赖，避免内存泄漏和无效触发。通过 `preCleanEffect` 和 `postCleanEffect`，实现依赖的 diff 和精准移除。
-- 完善了依赖触发机制：当响应式数据发生变化时，能够高效、准确地触发相关 effect 的重新执行，支持自定义 scheduler。
-- 优化了 Proxy handler：在 `get` 时收集依赖，在 `set` 时对比新旧值并触发更新，保证响应式系统的高效和正确性。
-- 代码结构优化：进一步拆分和优化了 `effect.ts`、`reactiveEffect.ts`、`baseHandlers.ts` 等核心文件，提升了可维护性和扩展性。
-- 新增嵌套响应式支持：读取对象属性时自动递归转为响应式对象。
-- effect 函数支持返回 runner，可手动触发和获取 effect 实例，支持 options 配置。
-- 增加 effect 递归执行保护，防止死循环和重复触发。
-- 新增 ref、toRef、toRefs、proxyRefs 等API，实现响应式基本数据的引用类型支持，便于处理基本类型和对象属性的响应式绑定。
-
-## Day 4 总结
-
-- 新增了 `computed` 计算属性 API，实现了基于依赖收集的惰性求值和缓存机制。`computed` 支持只读和可写两种用法，内部通过 `ReactiveEffect` 管理依赖和脏值标记，依赖变更时自动更新。
-- 新增了 `watch` 和 `watchEffect` API，实现了对响应式数据的侦听和副作用处理。`watch` 支持深度监听、立即执行、清理回调等特性，能够在数据变化时执行回调函数，并支持手动停止监听。
-- `computed` 和 `watch` 的实现进一步完善了响应式系统的能力，使其能够高效地处理复杂的依赖关系和副作用逻辑，提升了框架的实用性和灵活性。
+如需进一步了解每个模块的实现细节，可直接查阅 `packages/reactivity/src/` 目录下的源码文件。
