@@ -71,6 +71,19 @@
 - **常量**：如 `ReactiveFlags`、`DirtyLevels`，用于标记响应式对象和脏值状态。
 - **工具函数**：如 `isObject`、`isFunction`，辅助类型判断和通用逻辑。
 
+### 8. 虚拟 DOM Diff 算法与渲染优化
+
+- **核心内容**：
+  - 新增 `seq.ts` 工具文件，实现最长递增子序列（LIS）算法，提升 keyed diff 性能。
+  - `createVnode.ts` 新增 `isVnode`、`isSameVnode` 方法，辅助虚拟节点的类型判断与对比。
+  - `h.ts` 优化 vnode 类型判断逻辑，复用 `createVnode.ts` 工具函数。
+  - `renderer.ts` 实现高效的 keyed diff 算法，支持节点复用、插入、卸载与属性/子节点的精准更新。
+  - `patchStyle.ts` 修复样式 diff 时 nextValue 为空的边界处理，提升健壮性。
+- **实现要点**：
+  - diff 算法分为全量递归 diff 与快速 keyed diff，优先对比头尾，缩小对比范围。
+  - 通过映射表与 LIS 算法，减少 DOM 操作次数，实现最优节点移动。
+  - 支持 anchor 定位插入，完善 unmount 逻辑，提升渲染性能。
+
 ## 设计亮点
 
 - **模块化设计**：各功能点独立封装，便于理解和扩展。
