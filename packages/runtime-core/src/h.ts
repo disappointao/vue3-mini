@@ -7,7 +7,7 @@
 // 6.如果超过三个参数的，后面都是儿子
 
 import { isObject } from "@vue/shared";
-import { createVnode } from "./createVnode";
+import { createVnode, isVnode } from "./createVnode";
 
 export function h(type, propsOrChildren, children?) {
   let l = arguments.length;
@@ -34,8 +34,4 @@ export function h(type, propsOrChildren, children?) {
     //  ==3 | ==1
     return createVnode(type, propsOrChildren, children);
   }
-}
-
-function isVnode(node) {
-  return node?.__v_isVNode;
 }
