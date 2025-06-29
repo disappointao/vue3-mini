@@ -1,6 +1,9 @@
-import { ShapeFlags } from "@vue/shared";
-import { isSameVnode } from "./createVnode";
+import { hasOwn, ShapeFlags } from "@vue/shared";
+import { Fragment, isSameVnode, Text } from "./createVnode";
 import { getSequence } from "./seq";
+import { reactive, ReactiveEffect } from "@vue/reactivity";
+import { queueJob } from "./scheduler";
+import { createComponentInstance, setupComponent } from "./component";
 
 export function createRenderer(renderOptions) {
   // core 中不关心如何渲染
@@ -257,12 +260,76 @@ export function createRenderer(renderOptions) {
     patchChildren(n1, n2, el);
   };
 
+  const processText = (n1, n2, container) => {
+    if (n1 === null) {
+      // 虚拟节点关联真实节点
+      // 节点插入到页面中
+      hostInsert((n2.el = hostCreateText(n2.children)), container);
+    } else {
+      const el = (n2.el = n1.el);
+      if (n1.children !== n2.children) {
+        hostSetText(el, n2.children);
+      }
+    }
+  };
+
+  const processFragment = (n1, n2, container) => {
+    if (n1 === null) {
+      mountChildren(n2.children, container);
+    } else {
+      patchChildren(n1, n2, container);
+    }
+  };
+
   const processElement = (n1, n2, container, anchor) => {
     if (n1 === null) {
       mountElement(n2, container, anchor);
     } else {
       // 两个有差异
       patchElement(n1, n2, container);
+    }
+  };
+
+  function setupRenderEffect(instance, container, anchor) {
+    const { render } = instance;
+    // 元素更新 n2.el = n1.el
+    // 组件更新 vnode.component.subTree.el = n1.subTree.el
+
+    const componentUpdateFn = () => {
+      // 要区分是第一次还是之后的
+      if (!instance.isMounted) {
+        const subTree = render.call(instance.proxy, instance.proxy);
+        patch(null, subTree, container, anchor);
+        instance.isMounted = true;
+        instance.subTree = subTree;
+      } else {
+        // 基于状态的组件更新
+        const subTree = render.call(instance.proxy, instance.proxy);
+        patch(instance.subTree, subTree, container, anchor);
+        instance.subTree = subTree;
+      }
+    };
+
+    const effect = new ReactiveEffect(componentUpdateFn, () => {
+      queueJob(update);
+    });
+
+    const update = (instance.update = () => effect.run());
+    update();
+  }
+  const mountComponent = (vnode, container, anchor) => {
+    // 1. 创建组件实例
+    const instance = (vnode.component = createComponentInstance(vnode));
+    // 2. 实例属性赋值
+    setupComponent(instance);
+    // 3. 创建一个effect
+    setupRenderEffect(instance, container, anchor);
+  };
+
+  const processComponent = (vnode, container, anchor) => {
+    if (vnode === null) {
+      mountComponent(vnode, container, anchor);
+    } else {
     }
   };
 
@@ -276,11 +343,30 @@ export function createRenderer(renderOptions) {
       unmount(n1);
       n1 = null; // 就会执行后续n2的初始化
     }
-
-    processElement(n1, n2, container, anchor); //  对元素处理
+    const { type, shapeFlag } = n2;
+    switch (type) {
+      case Text:
+        processText(n1, n2, container);
+        break;
+      case Fragment:
+        processFragment(n1, n2, container);
+        break;
+      default:
+        if (shapeFlag & ShapeFlags.ELEMENT) {
+          processElement(n1, n2, container, anchor); //  对元素处理
+        } else if (shapeFlag & ShapeFlags.COMPONENT) {
+          processComponent(n2, container, anchor);
+        }
+    }
   };
 
-  const unmount = (vnode) => hostRemove(vnode.el);
+  const unmount = (vnode) => {
+    if (vnode.type === Fragment) {
+      unmountChildren(vnode.children);
+    } else {
+      hostRemove(vnode.el);
+    }
+  };
 
   // 多次调用render 会进行虚拟节点的比较， 再进行更新
   const render = (vnode, container) => {
@@ -289,11 +375,11 @@ export function createRenderer(renderOptions) {
       if (container._vnode) {
         unmount(container._vnode);
       }
+    } else {
+      // 将虚拟节点变成真实接地那进行渲染
+      patch(container._vnode || null, vnode, container);
+      container._vnode = vnode;
     }
-
-    // 将虚拟节点变成真实接地那进行渲染
-    patch(container._vnode || null, vnode, container);
-    container._vnode = vnode;
   };
   return {
     render,

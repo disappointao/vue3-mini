@@ -10,3 +10,6 @@ export function isString(value) {
 }
 
 export * from "./shapeFlags";
+
+export const hasOwn = (value, key) =>
+  Object.prototype.hasOwnProperty.call(value, key);
