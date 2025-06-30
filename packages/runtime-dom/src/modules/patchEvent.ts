@@ -1,6 +1,7 @@
 function createInvoker(handler) {
   const invoker = (e) => invoker.value(e);
   invoker.value = handler; //  更改invoker中value 函数 可以修改对应的应用调用 （用于优化性能，不用一直删除，绑定dom的事件）
+  return invoker;
 }
 
 export default function patchEvent(el, name, handler) {
